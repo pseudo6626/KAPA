@@ -2,7 +2,7 @@
 
 KAPA - Klipper Asymmetric PID Autotuning
 
-KAPA is a modification of the Klipper PID autotune python file for improved performance and stability of resulting PID coefficients. The new routine is based off of this work: https://portal.research.lu.se/portal/files/3633151/5463952.pdf and feautures asymetric cyclical tuning. This allows the PID to compensate for systems where the rate of increase for the desired variable of change is significantly differet from the rate of decrease. (for example, large glass 3d printing beds)
+KAPA is a modification of the Klipper PID autotune python file for improved performance and stability of resulting PID coefficients by utilizing asymmetric relay testing calibration methods. The new routine is based off of this work: https://portal.research.lu.se/portal/files/3633151/5463952.pdf and feautures asymetric cyclical tuning. This allows the PID to compensate for systems where the rate of increase for the desired variable of change is significantly differet from the rate of decrease. (for example, large glass 3d printing beds)
 
 This is a WIP and as of now has barely even been started. Current roadmap includes:
 
