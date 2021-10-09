@@ -59,10 +59,6 @@ class ControlAutoTune:
         self.calibrate_temp = target
         # Heating control
         self.heating = False
-        self.peak = 0.
-        self.peak_time = 0.
-        # Peak recording
-        self.peaks = []
         # Sample recording
         self.last_pwm = 0.
         self.pwm_samples = []
@@ -74,10 +70,11 @@ class ControlAutoTune:
         self.delt =0
         self.prev_delt = 0
         self.phase_start = 0
-        self.h = 0
-        self.bands=[]
-        self.pwm_amps=[]
-        self.sampling=[]
+        self.h = 0          #hysterics value
+        self.bands=[]       #stores temp band values are added in as bands[0] = upper and bands[1] = lower
+        self.pwm_amps=[]    #stores current up and down amps for pwm
+        self.sampling=[]    #stores temps for each halfcycle for checking amps
+        self.halfperiods= [[],[]]  #halfcycles = [[[tdwn,pwm],[tdwn,pwm],...],[[tup,pwm],[tup,pwm],...]
         self.gamma = gamma
         
     # Heater control
@@ -121,7 +118,6 @@ class ControlAutoTune:
                 tmax=self.phase_temps[0]
                 tmin=self.phase_temps[-1]
                 self.h = 3*(tmax-tmin)/2
-         #bands are added in as bands[0] = upper and bands[1] = lower
                 self.bands.append([self.calibrate_temp+4*self.h,self.calibrate_temp+2+4*self.gamma*self.h])
                 self.bands.append([self.calibrate_temp-4*self.h,self.calibrate_temp-2-4*self.gamma*self.h])
                 self.bands.append([self.calibrate_temp+(2+4*self.gamma*self.h+4*self.gamma*self.h)/2,self.calibrate_temp-(4*self.h+(2+4*self.h))/2])
@@ -154,9 +150,15 @@ class ControlAutoTune:
                 self.sampling.sort()
                 if self.sampling[-1] > self.bands[0][1]:
                     self.pwm_amps[0]=self.pwm_amps[0]*(self.bands[2][0]/self.sampling[-1])
+                self.sampling=[]
                 self.heating= True
                 self.set_pwm(read_time,self.pwm_amps[0])
                 self.phase_pwms.append((read_time,self.pwm_amps[0]))
+                self.halfcycles[1].append([self.phase_pwms[-2][0]-self.phase_pwms[-1][0],self.phase_pwms[-2][1]])
+                if len(self.halfcycles[0]) and len(self.halfcycles[0]) >= 2:
+                    if abs((self.halfcycles[0][-1][0]+self.halfcycles[1][-1][0]) - (self.halfcycles[0][-2][0]+self.halfcycles[1][-2][0]))/(self.halfcycles[0][-2][0]+self.halfcycles[1][-2][0]) <=0.01:
+                        self.set_pwm(read_time,0.)
+                        self.phase = 5
                 
             elif self.heating and temp in range(self.bands[0][0],self.bands[0][1]): #if heating and in upper band
                 self.phase_temps.append((read_time, temp))
@@ -166,49 +168,49 @@ class ControlAutoTune:
                 self.sampling.sort()
                 if self.sampling[0] < self.bands[1][1]:
                     self.pwm_amps[1]=self.pwm_amps[1]*(self.bands[2][1]/self.sampling[0])
+                self.sampling=[]
                 self.heating= False
                 self.set_pwm(read_time,self.pwm_amps[1])
                 self.phase_pwms.append((read_time,self.pwm_amps[1]))
-                
+                self.halfcycles[0].append([self.phase_pwms[-2][0]-self.phase_pwms[-1][0]self.phase_pwms[-2][1]])
+                if len(self.halfcycles[0]) and len(self.halfcycles[0]) >= 2:
+                    if abs((self.halfcycles[0][-1][0]+self.halfcycles[1][-1][0]) - (self.halfcycles[0][-2][0]+self.halfcycles[1][-2][0]))/(self.halfcycles[0][-2][0]+self.halfcycles[1][-2][0]) <=0.01:
+                        self.set_pwm(read_time,0.)
+                        self.phase = 5
+                        
             else: #if not at a switching point
                 self.phase_temps.append((read_time, temp))                
                     
         
     def check_busy(self, eventtime, smoothed_temp, target_temp):
-        if self.heating or len(self.peaks) < 12:
+        if self.heating or self.phase =! 5:
             return True
         return False
+    
     # Analysis
-    def check_peaks(self):
-        self.peaks.append((self.peak, self.peak_time))
-        if self.heating:
-            self.peak = 9999999.
-        else:
-            self.peak = -9999999.
-        if len(self.peaks) < 4:
-            return
-        self.calc_pid(len(self.peaks)-1)
-    def calc_pid(self, pos):
-        temp_diff = self.peaks[pos][0] - self.peaks[pos-1][0]
-        time_diff = self.peaks[pos][1] - self.peaks[pos-2][1]
-        # Use Astrom-Hagglund method to estimate Ku and Tu
-        amplitude = .5 * abs(temp_diff)
-        Ku = 4. * self.heater_max_power / (math.pi * amplitude)
-        Tu = time_diff
-        # Use Ziegler-Nichols method to generate PID parameters
-        Ti = 0.5 * Tu
-        Td = 0.125 * Tu
-        Kp = 0.6 * Ku * heaters.PID_PARAM_BASE
-        Ki = Kp / Ti
-        Kd = Kp * Td
-        logging.info("Autotune: raw=%f/%f Ku=%f Tu=%f  Kp=%f Ki=%f Kd=%f",
-                     temp_diff, self.heater_max_power, Ku, Tu, Kp, Ki, Kd)
+    def calc_final_pid(self):
+        rho = max(max(self.halfcycles[0][-4:][0]),max(self.halfcycles[1][-4:][0]))/ min(min(self.halfcycles[0][-4:][0]),min(self.halfcycles[1][-4:][0]))
+        tau= (self.gamma - rho)/((self.gamma-1)(0.35*rho+0.65))
+        pwmInt=self.halfcycles[1][-1][0]*self.halfcycles[1][-1][1] - self.halfcycles[0][-1][0]*self.halfcycles[0][-1][1]
+        tempInt=0
+        cycleTemps=[]
+        for samples in self.phase_temps:
+            if samples[0] in range(self.phase_pwms[-3][0],self.phase_temps[-1][0]):
+                cycleTemps.append(samples)
+        for pairs in cycleTemps:
+            if cycleTemps.index(pairs)+1 <= len(cycleTemps):
+                tempInt += (cycleTemps[cycleTemps.index(pairs)][0] - pairs[0])*(cycleTemps[cycleTemps.index(pairs)][1] + pairs[1])/2
+        Kp=tempInt/pwmInt
+        T=self.halfcycles[1][-1][0]/math.log(((self.h/Kp) - self.halfcycles[1][-1][1] + math.exp(tau/(tau-1))*(self.halfcycles[1][-1][1]+self.halfcycles[0][-1][1]))/(self.halfcycles[0][-1][1]-(self.h/Kp)))
+        L=T*(tau/(tau-1))
+        K=(0.2*L+0.45*T)/(Kp*L)
+        Ti=L*(0.4*L+0.8*T)/(L+0.1*T)
+        Td=0.5*L*T/(0.3*L+T)
+        Kp=K
+        Ki=K/Ti
+        Kd=K*Td
         return Kp, Ki, Kd
-
-        cycle_times = [(self.peaks[pos][1] - self.peaks[pos-2][1], pos)
-                       for pos in range(4, len(self.peaks))]
-        midpoint_pos = sorted(cycle_times)[len(cycle_times)//2][1]
-        return self.calc_pid(midpoint_pos)
+        
     # Offline analysis helper
     def write_file(self, filename):
         pwm = ["pwm: %.3f %.3f" % (time, value)
