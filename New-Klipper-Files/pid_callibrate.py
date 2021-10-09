@@ -3,7 +3,7 @@
 # Copyright (C) 2016-2018  Kevin O'Connor <kevin@koconnor.net>
 #
 # This file may be distributed under the terms of the GNU GPLv3 license.
-import math, logging, time
+import math, logging
 from . import heaters
 
 class PIDCalibrate:
@@ -67,9 +67,17 @@ class ControlAutoTune:
         self.last_pwm = 0.
         self.pwm_samples = []
         self.temp_samples = []
+        self.phase_temps = []
+        self.phase_pwms = []
         self.phase = 0
-        self.phase_0_start_time = 0
-        self.noises= []
+        self.target_PWM = 1
+        self.delt =0
+        self.prev_delt = 0
+        self.phase_start = 0
+        self.h = 0
+        self.bands=[]
+        self.pwm_amps=[]
+        self.sampling=[]
         self.gamma = gamma
         
     # Heater control
@@ -81,27 +89,91 @@ class ControlAutoTune:
         self.heater.set_pwm(read_time, value)
     def temperature_update(self, read_time, temp, target_temp):
         self.temp_samples.append((read_time, temp))
-        # Check if the temperature has crossed the target and
-        # enable/disable the heater if so.
-        if self.heating and temp >= target_temp:
-            self.heating = False
-            self.check_peaks()
-            self.heater.alter_target(self.calibrate_temp - TUNE_PID_DELTA)
-        elif not self.heating and temp <= target_temp:
-            self.heating = True
-            self.check_peaks()
-            self.heater.alter_target(self.calibrate_temp)
-        # Check if this temperature is a peak and record it if so
-        if self.heating:
-            self.set_pwm(read_time, self.heater_max_power)
-            if temp < self.peak:
-                self.peak = temp
-                self.peak_time = read_time
-        else:
-            self.set_pwm(read_time, 0.)
-            if temp > self.peak:
-                self.peak = temp
-                self.peak_time = read_time
+        if self.phase == 0:
+            if not self.heating and temp <= target_temp:
+                self.set_pwm(read_time, self.heater_max_power)
+                self.heating = True
+            if temp > target_temp:
+                self.set_pwm(read_time, 0.)
+                self.heating = False
+                self.phase = 1
+            # maybe add some sort of time out error here? Probably a good idea
+            
+        elif self.phase == 1:
+            self.phase_temps.append(temp)
+            self.set_pwm(read_time, min(self.heater_max_power, self.target_PWM))
+            self.target_PWM = self.target_PWM + 1    #this growth may be too slow, but faster growth will lead to inacuracy
+            
+            if len(self.phase_temps) >= 4:
+                 self.delt = self.phase_temps[-1] - self.phase_temps[-2]
+                 self.prev_delt= self.phase_temps[-2] - self.phase_temps[-3]
+                 if abs(abs(self.delt)-abs(self.prev_delt))/abs(self.prev_delt) <= 0.01:
+                        self.phase = 2
+                        self.phase_temps = []
+                        self.phase_pwms = []
+                        self.target_PWM = self.target_PWM - 1 
+            
+        elif self.phase == 2:
+            if self.phase_start == 0:
+                self.phase_start = read_time
+            if read_time - self.phase_start > 10:
+                self.phase_temps.sort(reverse= True)
+                tmax=self.phase_temps[0]
+                tmin=self.phase_temps[-1]
+                self.h = 3*(tmax-tmin)/2
+         #bands are added in as bands[0] = upper and bands[1] = lower
+                self.bands.append([self.calibrate_temp+4*self.h,self.calibrate_temp+2+4*self.gamma*self.h])
+                self.bands.append([self.calibrate_temp-4*self.h,self.calibrate_temp-2-4*self.gamma*self.h])
+                self.bands.append([self.calibrate_temp+(2+4*self.gamma*self.h+4*self.gamma*self.h)/2,self.calibrate_temp-(4*self.h+(2+4*self.h))/2])
+                self.phase = 3
+                self.phase_temps = []
+                self.phase_pwms = [self.target_PWM]
+            else:
+                self.phase_temps.append(temp)
+            
+            
+        elif self.phase == 3:
+            if temp in range(self.bands[0][0],self.bands[0][1]):
+                self.pwm_amps.append(self.phase_pwms[-2])
+                self.pwm_amps.append(self.phase_pwms[-2]/self.gamma)
+                self.set_pwm(read_time, self.pwm_amps[1])
+                self.phase = 4
+                self.phase_temps = []
+                self.phase_pwms = [[read_time, self.pwm_amps[1]]]
+            else:
+                self.phase_pwms.append(self.phase_pwms[-1]+1)
+                self.set_pwm(read_time, min(self.heater_max_power, self.phase_pwms[-1]))
+            
+            
+        elif self.phase == 4:
+            if not self.heating and temp in range(self.bands[1][1],self.bands[1][0]): #if not heating and in lower band
+                self.phase_temps.append((read_time, temp))
+                for samples in self.phase_temps:
+                    if samples[0] in range(self.phase_pwms[-1][0], read_time):
+                        self.sampling.append(samples[1])
+                self.sampling.sort()
+                if self.sampling[-1] > self.bands[0][1]:
+                    self.pwm_amps[0]=self.pwm_amps[0]*(self.bands[2][0]/self.sampling[-1])
+                self.heating= True
+                self.set_pwm(read_time,self.pwm_amps[0])
+                self.phase_pwms.append((read_time,self.pwm_amps[0]))
+                
+            elif self.heating and temp in range(self.bands[0][0],self.bands[0][1]): #if heating and in upper band
+                self.phase_temps.append((read_time, temp))
+                for samples in self.phase_temps:
+                    if samples[0] in range(self.phase_pwms[-1][0], read_time):
+                        self.sampling.append(samples[1])
+                self.sampling.sort()
+                if self.sampling[0] < self.bands[1][1]:
+                    self.pwm_amps[1]=self.pwm_amps[1]*(self.bands[2][1]/self.sampling[0])
+                self.heating= False
+                self.set_pwm(read_time,self.pwm_amps[1])
+                self.phase_pwms.append((read_time,self.pwm_amps[1]))
+                
+            else: #if not at a switching point
+                self.phase_temps.append((read_time, temp))                
+                    
+        
     def check_busy(self, eventtime, smoothed_temp, target_temp):
         if self.heating or len(self.peaks) < 12:
             return True
@@ -145,22 +217,6 @@ class ControlAutoTune:
         f = open(filename, "wb")
         f.write('\n'.join(pwm + out))
         f.close()
-
-    def pid_phase_0(self):
-        #in phase 0, measure noise over 10 seconds
-        if self.phase_0_start_time == 0:
-          self.phase_0_start_time=self.temp_samples[-1][0]
-        if self.phase_0_start_time != 0 and len(self.noises)<10:
-          self.noises.append(self.temp_samples[-1][1])
-        elif self.phase_0_start_time != 0 and len(self.noises)>=10:
-          self.noises.sort(reverse= True)
-          max_noise=self.noise[0]
-          min_noise=self.noises[-1]
-          #calculate width of hysterics, and determine target bands
-          h=3*(max_noise-min_noise)/2
-          upperband=[self.calibrate_temp+4*h,self.calibrate_temp+4*h*self.gamma]
-          lowerband=[self.calibrate_temp-4*h,self.calibrate_temp-4*h*self.gamma]
-          self.phase=1
         
         
 def load_config(config):
