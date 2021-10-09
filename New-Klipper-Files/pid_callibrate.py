@@ -74,7 +74,7 @@ class ControlAutoTune:
         self.bands=[]       #stores temp band values are added in as bands[0] = upper and bands[1] = lower
         self.pwm_amps=[]    #stores current up and down amps for pwm
         self.sampling=[]    #stores temps for each halfcycle for checking amps
-        self.halfperiods= [[],[]]  #halfcycles = [[[tdwn,pwm],[tdwn,pwm],...],[[tup,pwm],[tup,pwm],...]
+        self.halfcycles= [[],[]]  #halfcycles = [[[tdwn,pwm],[tdwn,pwm],...],[[tup,pwm],[tup,pwm],...]
         self.gamma = gamma
         
     # Heater control
