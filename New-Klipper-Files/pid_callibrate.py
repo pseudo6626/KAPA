@@ -199,7 +199,7 @@ class ControlAutoTune:
                 cycleTemps.append(samples)
         for pairs in cycleTemps:
             if cycleTemps.index(pairs)+1 <= len(cycleTemps):
-                tempInt += (cycleTemps[cycleTemps.index(pairs)][0] - pairs[0])*(cycleTemps[cycleTemps.index(pairs)][1] + pairs[1])/2
+                tempInt += (cycleTemps[cycleTemps.index(pairs)][0] - pairs[0])*(((cycleTemps[cycleTemps.index(pairs)][1] + pairs[1])/2)-self.calibrate_temp)
         Kp=tempInt/pwmInt
         T=self.halfcycles[1][-1][0]/math.log(((self.h/Kp) - self.halfcycles[1][-1][1] + math.exp(tau/(tau-1))*(self.halfcycles[1][-1][1]+self.halfcycles[0][-1][1]))/(self.halfcycles[0][-1][1]-(self.h/Kp)))
         L=T*(tau/(tau-1))
