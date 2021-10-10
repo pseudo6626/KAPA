@@ -172,7 +172,7 @@ class ControlAutoTune:
                 self.heating= False
                 self.set_pwm(read_time,self.pwm_amps[1])
                 self.phase_pwms.append((read_time,self.pwm_amps[1]))
-                self.halfcycles[0].append([self.phase_pwms[-2][0]-self.phase_pwms[-1][0]self.phase_pwms[-2][1]])
+                self.halfcycles[0].append([self.phase_pwms[-2][0]-self.phase_pwms[-1][0],self.phase_pwms[-2][1]])
                 if len(self.halfcycles[0]) and len(self.halfcycles[0]) >= 2:
                     if abs((self.halfcycles[0][-1][0]+self.halfcycles[1][-1][0]) - (self.halfcycles[0][-2][0]+self.halfcycles[1][-2][0]))/(self.halfcycles[0][-2][0]+self.halfcycles[1][-2][0]) <=0.01:
                         self.set_pwm(read_time,0.)
