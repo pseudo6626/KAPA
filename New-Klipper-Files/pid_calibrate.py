@@ -108,7 +108,7 @@ class ControlAutoTune:
             if len(self.phase_temps) > 20:
 		self.vary=self.variance(self.phase_temps[-15:])
 		logging.info(self.vary)
-		if self.vary<=0.00025 and self.target_PWM >0.0: 
+		if self.vary<=0.00025 and self.target_PWM >0.01: 
             		logging.info(self.vary)  
             		logging.info(self.phase_temps[-15:])                  
 			self.phase = 2
@@ -127,7 +127,7 @@ class ControlAutoTune:
             if self.phase_start == 0:
                 self.phase_start = read_time
                 self.heater.alter_target(self.calibrate_temp)
-            if read_time - self.phase_start > 10:
+            if read_time - self.phase_start > 5:
                 self.phase_temps.sort(reverse= True)
                 tmax=self.phase_temps[0]
                 tmin=self.phase_temps[-1]
@@ -138,10 +138,10 @@ class ControlAutoTune:
                     else:
                         self.mu=5
                 if self.calibrate_temp+self.mu*self.gamma*self.h > self.heater_max_temp:
-                    self.gamma = math.floor((self.heater_max_temp-self.calibration_temp-5)/(self.h*self.mu))
+                    self.gamma = math.floor((self.heater_max_temp-self.calibrate_temp-5)/(self.h*self.mu))
                 self.bands.append([self.calibrate_temp+self.mu*self.h,self.calibrate_temp+self.mu*self.gamma*self.h])
                 self.bands.append([self.calibrate_temp-self.mu*self.h,self.calibrate_temp-self.mu*self.gamma*self.h])
-                self.bands.append([self.calibration_temp+self.mu*self.h*self.gamma,self.calibrate_temp-self.mu*self.h,])
+                self.bands.append([self.calibrate_temp+self.mu*self.h*self.gamma,self.calibrate_temp-self.mu*self.h])
                 self.phase = 4
                 self.pwm_amps.append(min(self.target_PWM*self.gamma,self.heater_max_power))
                 self.pwm_amps.append(0.0)
@@ -174,46 +174,51 @@ class ControlAutoTune:
             
             
         elif self.phase == 4:
-            if not self.heating and temp <= self.bands[2][1]: #if not heating and in lower band
+            if not self.heating and temp <= self.bands[1][0]: #if not heating and in lower band
                 self.phase_temps.append((read_time, temp))
                 for samples in self.phase_temps:
                     if samples[0] >= self.phase_pwms[-1][0] and samples[0] <= read_time:
                         self.sampling.append(samples[1])
                 self.sampling.sort()
-               # if self.sampling[-1] > self.bands[0][1] or self.sampling[-1] < self.bands[2][0]:
-                    #self.pwm_amps[0]=self.pwm_amps[0]*(self.bands[2][0]/self.sampling[-1])
-                    #self.pwm_amps[1]=self.pwm_amps[1]*(self.bands[2][0]/self.sampling[-1])
+                if self.sampling[-1] > self.bands[2][0]:
+                    self.bands[0][1]=2*self.bands[2][0]-self.sampling[-1]
+                if self.sampling[0] > self.bands[2][1]:
+                    self.bands[0][1]=self.bands[0][1]+(self.bands[2][1]-self.sampling[-1])/2
                 self.sampling=[]
                 self.heating= True
                 self.set_pwm(read_time,self.pwm_amps[0])
-                self.heater.alter_target(self.bands[2][0])
+                self.heater.alter_target(self.bands[0][1])
                 self.phase_pwms.append((read_time,self.pwm_amps[0]))
                 self.halfcycles[1].append([self.phase_pwms[-1][0]-self.phase_pwms[-2][0],self.phase_pwms[-2][1]])
                 logging.info("up time: %f",self.halfcycles[-1])
                 if len(self.halfcycles[0]) and len(self.halfcycles[1]) >= 2:
                     logging.info("cycle dev: %f", abs((self.halfcycles[0][-1][0]+self.halfcycles[1][-1][0]) - (self.halfcycles[0][-2][0]+self.halfcycles[1][-2][0]))/(self.halfcycles[0][-2][0]+self.halfcycles[1][-2][0]))
-                    if abs((self.halfcycles[0][-1][0]+self.halfcycles[1][-1][0]) - (self.halfcycles[0][-2][0]+self.halfcycles[1][-2][0]))/(self.halfcycles[0][-2][0]+self.halfcycles[1][-2][0]) <=0.01:
+                    #if abs((self.halfcycles[0][-1][0]+self.halfcycles[1][-1][0]) - (self.halfcycles[0][-2][0]+self.halfcycles[1][-2][0]))/(self.halfcycles[0][-2][0]+self.halfcycles[1][-2][0]) <=0.01:
+                    if abs(self.halfcycles[0][-1][0]-self.halfcycles[0][-2][0])/self.halfcycles[0][-2][0] and abs(self.halfcycles[1][-1][0]-self.halfcycles[1][-2][0])/self.halfcycles[1][-2][0] <=0.01:
                         self.phase = 5
                 
-            elif self.heating and temp >= self.bands[2][0]: #if heating and in upper band
+            elif self.heating and temp >= self.bands[0][1]: #if heating and in upper band
                 self.phase_temps.append((read_time, temp))
                 for samples in self.phase_temps:
                     if samples[0] >= self.phase_pwms[-1][0] and samples[0] <= read_time:
                         self.sampling.append(samples[1])
                 self.sampling.sort()
-               # if self.sampling[0] < self.bands[1][1] or self.sampling[0] > self.bands[2][1]:
-                    #self.pwm_amps[1]=self.pwm_amps[1]*(self.bands[2][1]/self.sampling[0])
-                    #self.pwm_amps[0]=self.pwm_amps[0]*(self.bands[2][1]/self.sampling[0])
+                if self.sampling[0] < self.bands[2][1]:
+                    self.bands[1][0]=2*self.bands[2][1]-self.sampling[0]
+                if self.sampling[0] > self.bands[2][1]:
+                    self.bands[1][0]=self.bands[1][0]-(self.sampling[0]-self.bands[2][1])/2
                 self.sampling=[]
                 self.heating= False
                 self.set_pwm(read_time,self.pwm_amps[1])
-                self.heater.alter_target(self.bands[2][1])
+                self.heater.alter_target(self.bands[1][0])
                 self.phase_pwms.append((read_time,self.pwm_amps[1]))
                 self.halfcycles[0].append([self.phase_pwms[-1][0]-self.phase_pwms[-2][0],self.phase_pwms[-2][1]])
                 logging.info("down time: %f",self.halfcycles[-1])
                 if len(self.halfcycles[0]) and len(self.halfcycles[1]) >= 2:
                     logging.info("cycle dev: %f", abs((self.halfcycles[0][-1][0]+self.halfcycles[1][-1][0]) - (self.halfcycles[0][-2][0]+self.halfcycles[1][-2][0]))/(self.halfcycles[0][-2][0]+self.halfcycles[1][-2][0]))
-                    if abs((self.halfcycles[0][-1][0]+self.halfcycles[1][-1][0]) - (self.halfcycles[0][-2][0]+self.halfcycles[1][-2][0]))/(self.halfcycles[0][-2][0]+self.halfcycles[1][-2][0]) <=0.01:
+                    logging.info("up diff: %f down diff: %f",abs(self.halfcycles[0][-1][0]-self.halfcycles[0][-2][0])/self.halfcycles[0][-2][0],abs(self.halfcycles[1][-1][0]-self.halfcycles[1][-2][0])/self.halfcycles[1][-2][0])
+                    #if abs((self.halfcycles[0][-1][0]+self.halfcycles[1][-1][0]) - (self.halfcycles[0][-2][0]+self.halfcycles[1][-2][0]))/(self.halfcycles[0][-2][0]+self.halfcycles[1][-2][0]) <=0.01:
+                    if abs(self.halfcycles[0][-1][0]-self.halfcycles[0][-2][0])/self.halfcycles[0][-2][0] and abs(self.halfcycles[1][-1][0]-self.halfcycles[1][-2][0])/self.halfcycles[1][-2][0] <=0.01:
                         self.phase = 5
                         
             else: #if not at a switching point
@@ -257,7 +262,7 @@ class ControlAutoTune:
         mindown=min(downtimes)
 	maxdown=max(downtimes)
         logging.info("max up: %f min up: %f max down:%f min down: %f", maxup,minup,maxdown,mindown)
-        rho = max(maxup,maxdown)/ min(minup,mindown)
+        rho = max(halfcycles[0][-1][0],halfcycles[1][-1][0])/ min(halfcycles[0][-1][0],halfcycles[1][-1][0])
         tau= (self.gamma - rho)/((self.gamma-1)*(0.35*rho+0.65))
         pwmInt=self.halfcycles[0][-1][0]*(self.halfcycles[0][-1][1]-self.target_PWM)*255 + self.halfcycles[1][-1][0]*(self.halfcycles[1][-1][1]-self.target_PWM)*255
         tempInt=0
