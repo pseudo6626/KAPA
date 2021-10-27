@@ -144,7 +144,7 @@ class ControlAutoTune:
                 self.bands.append([self.calibrate_temp-self.mu*self.h,self.calibrate_temp-self.mu*self.gamma*self.h])
                 self.bands.append([self.calibrate_temp+self.mu*self.h*self.gamma,self.calibrate_temp-self.mu*self.h])
                 self.phase = 4
-                self.pwm_amps.append(self.heater_max_power)   #min(self.target_PWM*self.gamma,self.heater_max_power))
+                self.pwm_amps.append(min(self.target_PWM*self.gamma,self.heater_max_power))
                 self.pwm_amps.append(0.0)
                 logging.info(self.bands)
                 logging.info(self.h)
