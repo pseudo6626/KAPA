@@ -35,7 +35,7 @@ Phase 4: The system shuts heating off and notifies klipper that it should end th
 
 
 
-If you are interested in being a test subject for KAPA, download the file in the "new files" folder called pid_calibrate.py. DO NOT RENAME IT. The file must have this name. Next, use your SSH or SCP program of choice (I use winSCP) to navigate on your pi hosting klipper to:  /home/pi/klipper/klippy/extras    Next, identify and delete the two files named pid_calibrate in this folder. (One will have the .py extension, the other is a .pyc file that is auto generated on reboot). Finally, move the newly modified file you downloaded from me into the folder. 
+If you are interested in being a test subject for KAPA, download the file in the "new-klipper-files" folder called pid_calibrate.py. DO NOT RENAME IT. The file must have this name. Next, use your SSH or SCP program of choice (I use winSCP) to navigate on your pi hosting klipper to:  /home/pi/klipper/klippy/extras    Next, identify and delete the two files named pid_calibrate in this folder. (One will have the .py extension, the other is a .pyc file that is auto generated on reboot). Finally, move the newly modified file you downloaded from me into the folder. 
 
 Alternatively, you can copy/paste replace the contents of the new pid_calibrate.py file here into the file located on your pi. However, you still MUST delete the pid_calibrate.pyc file. Otherwise klipper wont "see" the new changes.
 
