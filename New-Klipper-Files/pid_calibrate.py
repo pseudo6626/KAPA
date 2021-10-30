@@ -144,7 +144,7 @@ class ControlAutoTune:
                 self.bands.append([self.calibrate_temp-self.mu*self.h,self.calibrate_temp-self.mu*self.gamma*self.h])
                 self.bands.append([self.calibrate_temp+self.mu*self.h*self.gamma,self.calibrate_temp-self.mu*self.h])
                 self.phase = 4
-                self.pwm_amps.append(min(self.target_PWM*self.gamma,self.heater_max_power))
+                self.pwm_amps.append(min(self.target_PWM*(self.gamma+1),self.heater_max_power))
                 self.pwm_amps.append(0.0)
                 logging.info(self.bands)
                 logging.info(self.h)
@@ -267,7 +267,7 @@ class ControlAutoTune:
 	maxdown=max(downtimes)
         logging.info("max up: %f min up: %f max down:%f min down: %f", maxup,minup,maxdown,mindown)
         rho = max(self.halfcycles[0][-1][0],self.halfcycles[1][-1][0])/ min(self.halfcycles[0][-1][0],self.halfcycles[1][-1][0])
-        tau= (self.gamma - rho)/((self.gamma-1)*(0.35*rho+0.65))
+        tau= 1-(self.gamma - rho)/((self.gamma-1)*(0.35*rho+0.65))
         pwmInt=self.halfcycles[0][-1][0]*(self.halfcycles[0][-1][1]-self.target_PWM)*255 + self.halfcycles[1][-1][0]*(self.halfcycles[1][-1][1]-self.target_PWM)*255
         tempInt=0
         cycleTemps=[]
@@ -282,15 +282,15 @@ class ControlAutoTune:
         logging.info(cycleTemps)
         logging.info(self.phase_temps)
         logging.info(self.phase_pwms)
-        T=self.halfcycles[0][-1][0]/math.log(((self.h/Kp) - self.target_PWM*255 + math.exp(tau/(1-tau))*(self.target_PWM*255+self.halfcycles[0][-1][1]*255))/(self.halfcycles[0][-1][1]*255-(self.h/Kp)))
+        T=self.halfcycles[0][-1][0]/math.log(((self.h/Kp) - self.target_PWM + math.exp(tau/(1-tau))*(self.target_PWM+self.halfcycles[0][-1][1]))/(self.halfcycles[0][-1][1]-(self.h/Kp)))
         L=T*(tau/(1-tau))
         K=(0.2*L+0.45*T)/(Kp*L)
         Ti=L*(0.4*L+0.8*T)/(L+0.1*T)
         Td=0.5*L*T/(0.3*L+T)
         logging.info("T: %f L: %f K: %f Ti: %f Td: %f",T,L,K,Ti,Td)
-        Kp=K
-        Ki=K/Ti
-        Kd=K*Td
+        Kp=K*255
+        Ki=255*K/Ti
+        Kd=K*Td*255
         return Kp, Ki, Kd
         
     # Offline analysis helper
