@@ -8,7 +8,8 @@ Update: KAPA is now in a working beta development. I will attempt here to give a
 
 First, calling the command is very simmilar to the stock command, but with one added input:
 
-PID_CALIBRATE HEATER=<desired heater>  TARGET=<target temp>  GAMMA= <desired asymmetry value>  WRITE_FILE=<1 for a txt of temp values>
+PID_CALIBRATE HEATER=[desired heater]  TARGET=[target temp]  GAMMA= [desired asymmetry value]  WRITE_FILE=[1 for a txt of temp values]
+
 
   The new gamma input should be an integer greater than 1 that defines the asymmetry of the experiment. Default values of 6 to 10 are recommended. NOTE: the larger your gamma, the greater the target temperatures will be during testing.  A gamma value MUST be provided.
   
