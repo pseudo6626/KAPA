@@ -1,5 +1,7 @@
 # project-KAPA
 
+DISCLAIMER: THESE FILES ARE PRESENTED AS IS WITH NO WARRANTY OR GUARANTEE OF PERFORMANCE. USE AT YOUR OWN RISK. I AM NOT RESPONSIBLE FOR ANY DAMAGES INCURRED THROUGH USE OF THIS PRORGAM.
+
 KAPA - Klipper Asymmetric PID Autotuning
 
 KAPA is a modification of the Klipper PID autotune python file for improved performance and stability of resulting PID coefficients by utilizing asymmetric relay testing calibration methods. The new routine is based off of this work: https://portal.research.lu.se/portal/files/3633151/5463952.pdf and feautures asymetric cyclical tuning. This allows the PID to compensate for systems where the rate of increase for the desired variable of change is significantly differet from the rate of decrease. (for example, large glass 3d printing beds)
@@ -32,6 +34,15 @@ Phase 4: The system shuts heating off and notifies klipper that it should end th
 
 
 
+
+If you are interested in being a test subject for KAPA, download the file in the "new files" folder called pid_calibrate.py. DO NOT RENAME IT. The file must have this name. Next, use your SSH or SCP program of choice (I use winSCP) to navigate on your pi hosting klipper to:  /home/pi/klipper/klippy/extras    Next, identify and delete the two files named pid_calibrate in this folder. (One will have the .py extension, the other is a .pyc file that is auto generated on reboot). Finally, move the newly modified file you downloaded from me into the folder. 
+
+Alternatively, you can copy/paste replace the contents of the new pid_calibrate.py file here into the file located on your pi. However, you still MUST delete the pid_calibrate.pyc file. Otherwise klipper wont "see" the new changes.
+
+
+please email me with any and all findings/issues at: pseudonymous.cypher@gmail.com
+
+DISCLAIMER: THESE FILES ARE PRESENTED AS IS WITH NO WARRANTY OR GUARANTEE OF PERFORMANCE. USE AT YOUR OWN RISK. I AM NOT RESPONSIBLE FOR ANY DAMAGES INCURRED THROUGH USE OF THIS PRORGAM.
 
 
 Current roadmap includes:
