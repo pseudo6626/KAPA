@@ -215,7 +215,7 @@ class ControlAutoTune:
  
        
     def check_busy(self, eventtime, smoothed_temp, target_temp):
-        if self.heating or self.phase != 5:
+        if self.heating or self.phase != 4:
             return True
         return False
     
