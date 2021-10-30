@@ -62,23 +62,21 @@ class ControlAutoTune:
         self.heating = False
         # Sample recording
         self.last_pwm = 0.
-        self.pwm_samples = []
-        self.temp_samples = []
-        self.phase_temps = []
-        self.phase_pwms = []
-        self.phase = 0
-        self.target_PWM = 0.05
-	self.vary=0.0
-        self.prev_delt = 0
-        self.phase_start = 0
+        self.pwm_samples = []   #global pwm samples recorded in (time,pwm). Does not reset between phases
+        self.temp_samples = []  #global temp samples recorded in (time,temp). Does not reset between phases
+        self.phase_temps = []   # the temp values and times for the current phase recorded in (time,temp). Reset between phases
+        self.phase_pwms = []    #the pwm values and times for the current phase recorded in (time,pwm). Reset between phases
+        self.phase = 0          #index used for moving through different phases of this program
+        self.target_PWM = 0.05  #the pwm that is needed to just maintain the target temp
+	self.vary=0.0        #used for measuring the variance in temps for phase 1
+        self.phase_start = 0 #used for timer in phase 2
         self.h = 0          #hysterics value
-        self.bands=[]       #stores temp band values are added in as bands[0] = upper and bands[1] = lower
-        self.pwm_amps=[]    #stores current up and down amps for pwm
+        self.bands=[]       #stores temp band values are added in as bands[0] = upper , bands[1] = lower , bands[2] = ideal critical temps
+        self.pwm_amps=[]    #stores up and down amps for pwm
         self.sampling=[]    #stores temps for each halfcycle for checking amps
         self.halfcycles= [[],[]]  #halfcycles = [[[tdwn,pwm],[tdwn,pwm],...],[[tup,pwm],[tup,pwm],...]
-        self.index=0;
-        self.gamma = gamma
-        self.mu=3	
+        self.gamma = gamma  #gamma sets the ratio between up and down amplitudes
+        self.mu=3           #mu aids in defining how much greater than the hysterics values the target temps are
         
     # Heater control
     def set_pwm(self, read_time, value):
@@ -91,7 +89,7 @@ class ControlAutoTune:
         self.temp_samples.append((read_time, temp))
         logging.info("phase: %f", self.phase)
 
-        if self.phase == 0:
+        if self.phase == 0:          #in this phase, the heater engages at full power till the target temp is reached
             if  temp <= target_temp:
                 self.set_pwm(read_time, self.heater_max_power)
                 self.heating = True
@@ -101,16 +99,14 @@ class ControlAutoTune:
                 self.phase = 1
             # maybe add some sort of time out error here? Probably a good idea
             
-        elif self.phase == 1:
+        elif self.phase == 1:         #in this phase, the system seeks to identify what pwm value is need to maintain a constant temp with variance <= 0.00025c^2 per 0.33s
             self.phase_temps.append(temp)
-            logging.info(self.target_PWM)
-            logging.info("temp: %f time: %f",temp,read_time)
             if len(self.phase_temps) > 20:
 		self.vary=self.variance(self.phase_temps[-15:])
-		logging.info(self.vary)
+		logging.info("variance: %f",self.vary)
 		if self.vary<=0.00025 and self.target_PWM >0.01: 
-            		logging.info(self.vary)  
-            		logging.info(self.phase_temps[-15:])                  
+            		logging.info("variance: %f",self.vary)
+			logging.info("steadystate pwm: %f",self.target_PWM)
 			self.phase = 2
                       	self.phase_temps = []
                       	self.phase_pwms = []
@@ -123,7 +119,7 @@ class ControlAutoTune:
                         self.target_PWM = min(self.target_PWM+self.vary,self.heater_max_power)
                         self.set_pwm(read_time, self.target_PWM)
             
-        elif self.phase == 2:
+        elif self.phase == 2:         #in this phase, the system observes the temp for 5 seconds while the steady state pwm is applied. From this, it determines the hysterics value h, the target temperature bands, and the up and down pwm amplitudes
             self.set_pwm(read_time,self.target_PWM)
             if self.phase_start == 0:
                 self.phase_start = read_time
@@ -143,45 +139,27 @@ class ControlAutoTune:
                 self.bands.append([self.calibrate_temp+self.mu*self.h,self.calibrate_temp+self.mu*self.gamma*self.h])
                 self.bands.append([self.calibrate_temp-self.mu*self.h,self.calibrate_temp-self.mu*self.gamma*self.h])
                 self.bands.append([self.calibrate_temp+self.mu*self.h*self.gamma,self.calibrate_temp-self.mu*self.h])
-                self.phase = 4
+                self.phase = 3
                 self.pwm_amps.append(min(self.target_PWM*(self.gamma+1),self.heater_max_power))
                 self.pwm_amps.append(0.0)
-                logging.info(self.bands)
-                logging.info(self.h)
-                logging.info(self.target_PWM)
+                logging.info("target temp bands: %a",self.bands)
+                logging.info("h: %f", self.h)
+                logging.info("steadystate PWM:", self.target_PWM)
                 self.phase_temps = []
                 self.phase_pwms = [[read_time, self.pwm_amps[1]]]
                 self.heater.alter_target(self.bands[1][0])
             else:
                 self.phase_temps.append(temp)
             
+	
             
-        elif self.phase == 3:
-            if int(temp) in range(self.bands[0][0],self.bands[0][1]): 
-                self.pwm_amps.append(self.phase_pwms[-1])
-                if self.phase_pwms[-1]/self.gamma -self.target_PWM > 0 and  self.phase_pwms[-1]/self.gamma -self.target_PWM < self.target_PWM:
-                    self.pwm_amps.append(self.phase_pwms[-1]/self.gamma -self.target_PWM)
-                else:
-                    self.pwm_amps.append(0.0)
-                self.set_pwm(read_time, self.pwm_amps[1])
-                self.heater.alter_target(self.bands[2][1])
-                self.phase = 4
-                self.phase_temps = []
-                self.phase_pwms = [[read_time, self.pwm_amps[1]]]
-            else:
-                self.heater.alter_target(self.bands[2][0])
-                self.phase_pwms.append(min(self.phase_pwms[-1]+0.005,self.heater_max_power))
-                self.set_pwm(read_time, min(self.heater_max_power, self.phase_pwms[-1]))
-            
-            
-        elif self.phase == 4:
+        elif self.phase == 3:                 #in this phase, the system runs the asymetric relay and records the temps and times for each half cycle. After 2 complete cycles, the system checks if both up and down halfcycles have a percent difference of <= 0.01 between the last two cycles
             if not self.heating and temp <= self.bands[1][0]: #if not heating and in lower band
                 self.phase_temps.append((read_time, temp))
                 for samples in self.phase_temps:
                     if samples[0] >= self.phase_pwms[-1][0] and samples[0] <= read_time:
                         self.sampling.append(samples[1])
                 self.sampling.sort()
-                logging.info(self.sampling)
                 if self.sampling[-1] > self.bands[2][0] and len(self.phase_pwms)>1:
                     self.bands[0][1]=(self.bands[2][0]/self.sampling[-1])*self.bands[0][1]
                 if self.sampling[-1] < self.bands[2][0] and len(self.phase_pwms)>1:
@@ -198,7 +176,7 @@ class ControlAutoTune:
                     logging.info("up diff: %f down diff: %f",abs(self.halfcycles[0][-1][0]-self.halfcycles[0][-2][0])/self.halfcycles[0][-2][0],abs(self.halfcycles[1][-1][0]-self.halfcycles[1][-2][0])/self.halfcycles[1][-2][0])
                     #if abs((self.halfcycles[0][-1][0]+self.halfcycles[1][-1][0]) - (self.halfcycles[0][-2][0]+self.halfcycles[1][-2][0]))/(self.halfcycles[0][-2][0]+self.halfcycles[1][-2][0]) <=0.01:
                     if abs(self.halfcycles[0][-1][0]-self.halfcycles[0][-2][0])/self.halfcycles[0][-2][0] <=0.01 and abs(self.halfcycles[1][-1][0]-self.halfcycles[1][-2][0])/self.halfcycles[1][-2][0] <=0.01:
-                        self.phase = 5
+                        self.phase = 4
                 
             elif self.heating and temp >= self.bands[0][1]: #if heating and in upper band
                 self.phase_temps.append((read_time, temp))
@@ -206,7 +184,6 @@ class ControlAutoTune:
                     if samples[0] >= self.phase_pwms[-1][0] and samples[0] <= read_time:
                         self.sampling.append(samples[1])
                 self.sampling.sort()
-                logging.info(self.sampling)
                 if self.sampling[0] < self.bands[2][1] and len(self.phase_pwms)>1:
                     self.bands[1][0]=(self.bands[2][1]/self.sampling[0])*self.bands[1][0]
                 if self.sampling[0] > self.bands[2][1] and len(self.phase_pwms)>1:
@@ -223,7 +200,7 @@ class ControlAutoTune:
                     logging.info("up diff: %f down diff: %f",abs(self.halfcycles[0][-1][0]-self.halfcycles[0][-2][0])/self.halfcycles[0][-2][0],abs(self.halfcycles[1][-1][0]-self.halfcycles[1][-2][0])/self.halfcycles[1][-2][0])
                     #if abs((self.halfcycles[0][-1][0]+self.halfcycles[1][-1][0]) - (self.halfcycles[0][-2][0]+self.halfcycles[1][-2][0]))/(self.halfcycles[0][-2][0]+self.halfcycles[1][-2][0]) <=0.01:
                     if abs(self.halfcycles[0][-1][0]-self.halfcycles[0][-2][0])/self.halfcycles[0][-2][0] <=0.01 and abs(self.halfcycles[1][-1][0]-self.halfcycles[1][-2][0])/self.halfcycles[1][-2][0] <=0.01:
-                        self.phase = 5
+                        self.phase = 4
                         
             else: #if not at a switching point
                 self.phase_temps.append((read_time, temp))
@@ -232,7 +209,7 @@ class ControlAutoTune:
 		else:
                     self.set_pwm(read_time,self.pwm_amps[1])
 
-        elif self.phase == 5:
+        elif self.phase == 4:
             self.set_pwm(read_time,0.)
             self.heating= False
  
@@ -254,7 +231,7 @@ class ControlAutoTune:
         return variance
     # Analysis
     def calc_final_pid(self):
-        logging.info(self.halfcycles)
+        logging.info("halfcycles: %a", self.halfcycles)
         uptimes=[]
         for vals in self.halfcycles[0][-4:]:
             uptimes.append(vals[0])
@@ -265,7 +242,6 @@ class ControlAutoTune:
             downtimes.append(val[0])
         mindown=min(downtimes)
 	maxdown=max(downtimes)
-        logging.info("max up: %f min up: %f max down:%f min down: %f", maxup,minup,maxdown,mindown)
         rho = max(self.halfcycles[0][-1][0],self.halfcycles[1][-1][0])/ min(self.halfcycles[0][-1][0],self.halfcycles[1][-1][0])
         tau= 1-(self.gamma - rho)/((self.gamma-1)*(0.35*rho+0.65))
         pwmInt=self.halfcycles[0][-1][0]*(self.halfcycles[0][-1][1]-self.target_PWM)*255 + self.halfcycles[1][-1][0]*(self.halfcycles[1][-1][1]-self.target_PWM)*255
@@ -279,9 +255,7 @@ class ControlAutoTune:
                 tempInt += (cycleTemps[cycleTemps.index(pairs)+1][0] - pairs[0])*(((cycleTemps[cycleTemps.index(pairs)+1][1] + pairs[1])/2)-self.calibrate_temp)
         Kp=abs(tempInt/pwmInt)
         logging.info("rho: %f tau: %f pwmInt: %f tempInt: %f Kp: %f",rho,tau,pwmInt,tempInt,Kp)
-        logging.info(cycleTemps)
-        logging.info(self.phase_temps)
-        logging.info(self.phase_pwms)
+        logging.info("cycle temps: %a",cycleTemps)
         T=self.halfcycles[0][-1][0]/math.log(((self.h/Kp) - self.target_PWM + math.exp(tau/(1-tau))*(self.target_PWM+self.halfcycles[0][-1][1]))/(self.halfcycles[0][-1][1]-(self.h/Kp)))
         L=T*(tau/(1-tau))
         K=(0.2*L+0.45*T)/(Kp*L)
