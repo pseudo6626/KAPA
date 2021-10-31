@@ -77,7 +77,10 @@ class ControlAutoTune:
         self.halfcycles= [[],[]]  #halfcycles = [[[tdwn,pwm],[tdwn,pwm],...],[[tup,pwm],[tup,pwm],...]
         self.gamma = gamma  #gamma sets the ratio between up and down amplitudes
         self.mu=3           #mu aids in defining how much greater than the hysterics values the target temps are
-        
+        self.mass=1.0       #a measure of the thermal inertia of the heater, identified as mass=Max_Power/(avg slope of initial heating curve). Used to dampen steady state process
+        self.driver=0       #an estimation of the enviromental driving force cooling the heater
+        self.threshold=0.00025   #the variance threshold for 5 seconds of temperatures to qualify steadstate pwm 
+
     # Heater control
     def set_pwm(self, read_time, value):
         if value != self.last_pwm:
@@ -85,11 +88,13 @@ class ControlAutoTune:
                 (read_time + self.heater.get_pwm_delay(), value))
             self.last_pwm = value
         self.heater.set_pwm(read_time, value)
+
     def temperature_update(self, read_time, temp, target_temp):
         self.temp_samples.append((read_time, temp))
         logging.info("phase: %f", self.phase)
 
         if self.phase == 0:          #in this phase, the heater engages at full power till the target temp is reached
+            self.phase_temps.append([read_time,temp])
             if  temp <= target_temp:
                 self.set_pwm(read_time, self.heater_max_power)
                 self.heating = True
@@ -97,14 +102,27 @@ class ControlAutoTune:
                 self.set_pwm(read_time, 0.)
                 self.heating = False
                 self.phase = 1
-            # maybe add some sort of time out error here? Probably a good idea
+                self.mass=self.heater_max_power/((self.phase_temps[-1][1]-self.phase_temps[0][1])/(self.phase_temps[-1][0]-self.phase_temps[0][0]))
+                logging.info("mass: %f",self.mass)
+                logging.info("delt: %f delv: %f",((self.phase_temps[-1][1]-self.phase_temps[0][1]),(self.phase_temps[-1][0]-self.phase_temps[0][0])))
+                self.phase_temps=[]          
+	  # maybe add some sort of time out error here? Probably a good idea
             
         elif self.phase == 1:         #in this phase, the system seeks to identify what pwm value is need to maintain a constant temp with variance <= 0.00025c^2 per 0.33s
-            self.phase_temps.append(temp)
-            if len(self.phase_temps) > 20:
-		self.vary=self.variance(self.phase_temps[-15:])
+            self.phase_temps.append([read_time,temp])
+            if len(self.phase_temps) > 60 and self.phase_temps[-1][1] < self.phase_temps[-15][1]:
+ 		if self.driver == 0:
+            		vals=[x[1] for x in self.phase_temps]
+            		peak= vals.index(max(vals))
+            		self.driver=self.mass*abs(self.phase_temps[-1][1]-self.phase_temps[peak][1])/(self.phase_temps[-1][0]-self.phase_temps[peak][0])
+            		logging.info("driver: %f",self.driver)
+            		self.target_PWM=min(self.driver,0.6)
+
+            if self.driver > 0:
+		self.vary=self.variance([y[1] for y in self.phase_temps[-15:]])
 		logging.info("variance: %f",self.vary)
-		if self.vary<=0.00025 and self.target_PWM >0.01: 
+		logging.info("current PWM: %f",self.target_PWM)
+		if self.vary<=self.threshold and self.target_PWM >0.01: 
             		logging.info("variance: %f",self.vary)
 			logging.info("steadystate pwm: %f",self.target_PWM)
 			self.phase = 2
@@ -112,19 +130,26 @@ class ControlAutoTune:
                       	self.phase_pwms = []
                       	self.set_pwm(read_time,0.0)
                       	self.calibrate_temp=temp
-		elif self.phase_temps[-1] - self.phase_temps[-4] > 0.0:
-                        self.target_PWM = max(self.target_PWM-self.vary,0.0)
+		elif self.phase_temps[-1][1] - self.phase_temps[-4][1] > 0.0:
+                        self.target_PWM = max(self.target_PWM-min(self.vary,0.003),0)
                         self.set_pwm(read_time, self.target_PWM)
-		elif self.phase_temps[-1] - self.phase_temps[-4] < 0.0:
-                        self.target_PWM = min(self.target_PWM+self.vary,self.heater_max_power)
+		elif self.phase_temps[-1][1] - self.phase_temps[-4][1] < 0.0:
+                        self.target_PWM = min(self.target_PWM+min(self.vary,0.003),self.heater_max_power)
                         self.set_pwm(read_time, self.target_PWM)
+		self.threshold=min(0.00025+0.00001*math.floor((len(self.phase_temps)-40)/33),0.00111)
+		logging.info("threshold: %f",self.threshold)
+            else:
+ 		self.set_pwm(read_time, 0.0)
+
+
+            
             
         elif self.phase == 2:         #in this phase, the system observes the temp for 5 seconds while the steady state pwm is applied. From this, it determines the hysterics value h, the target temperature bands, and the up and down pwm amplitudes
             self.set_pwm(read_time,self.target_PWM)
             if self.phase_start == 0:
                 self.phase_start = read_time
                 self.heater.alter_target(self.calibrate_temp)
-            if read_time - self.phase_start > 5:
+            if read_time - self.phase_start > 10:
                 self.phase_temps.sort(reverse= True)
                 tmax=self.phase_temps[0]
                 tmin=self.phase_temps[-1]
