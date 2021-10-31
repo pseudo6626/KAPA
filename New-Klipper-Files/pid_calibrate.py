@@ -79,7 +79,7 @@ class ControlAutoTune:
         self.mu=3           #mu aids in defining how much greater than the hysterics values the target temps are
         self.mass=1.0       #a measure of the thermal inertia of the heater, identified as mass=Max_Power/(avg slope of initial heating curve). Used to dampen steady state process
         self.driver=0       #an estimation of the enviromental driving force cooling the heater
-        self.threshold=0.00025   #the variance threshold for 5 seconds of temperatures to qualify steadstate pwm 
+        self.threshold=0.000625   #the variance threshold for 5 seconds of temperatures to qualify steadstate pwm 
 
     # Heater control
     def set_pwm(self, read_time, value):
@@ -119,7 +119,7 @@ class ControlAutoTune:
             		self.target_PWM=min(self.driver,0.6)
 
             if self.driver > 0:
-		self.vary=self.variance([y[1] for y in self.phase_temps[-15:]])
+		self.vary=self.variance([y[1] for y in self.phase_temps[-9:]])
 		logging.info("variance: %f",self.vary)
 		logging.info("current PWM: %f",self.target_PWM)
 		if self.vary<=self.threshold and self.target_PWM >0.01: 
@@ -136,7 +136,7 @@ class ControlAutoTune:
 		elif self.phase_temps[-1][1] - self.phase_temps[-4][1] < 0.0:
                         self.target_PWM = min(self.target_PWM+min(self.vary,0.003),self.heater_max_power)
                         self.set_pwm(read_time, self.target_PWM)
-		self.threshold=min(0.00025+0.00001*math.floor((len(self.phase_temps)-40)/33),0.00111)
+		self.threshold=min(0.000625+0.00003125*math.floor((len(self.phase_temps)-40)/15),0.0025)
 		logging.info("threshold: %f",self.threshold)
             else:
  		self.set_pwm(read_time, 0.0)
