@@ -6,14 +6,14 @@
 import math, logging
 from . import heaters
 
-class PIDCalibrate:
+class KAPAPIDCalibrate:
     def __init__(self, config):
         self.printer = config.get_printer()
         gcode = self.printer.lookup_object('gcode')
-        gcode.register_command('PID_CALIBRATE', self.cmd_PID_CALIBRATE,
-                               desc=self.cmd_PID_CALIBRATE_help)
-    cmd_PID_CALIBRATE_help = "Run PID calibration test"
-    def cmd_PID_CALIBRATE(self, gcmd):
+        gcode.register_command('KAPA', self.cmd_KAPA,
+                               desc=self.cmd_KAPA_help)
+    cmd_KAPA_help = "Run PID calibration test"
+    def cmd_KAPA(self, gcmd):
         heater_name = gcmd.get('HEATER')
         target = gcmd.get_float('TARGET')
         gamma = gcmd.get_float('GAMMA')
@@ -303,5 +303,5 @@ class ControlAutoTune:
         
         
 def load_config(config):
-    return PIDCalibrate(config)
+    return KAPAPIDCalibrate(config)
 
