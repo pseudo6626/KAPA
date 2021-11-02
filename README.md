@@ -10,7 +10,7 @@ Update: KAPA is now in a working beta development. I will attempt here to give a
 
 First, calling the command is very simmilar to the stock command, but with one added input:
 
-PID_CALIBRATE HEATER=[desired heater]  TARGET=[target temp]  GAMMA= [desired asymmetry value]  WRITE_FILE=[1 for a txt of temp values]
+KAPA HEATER=[desired heater]  TARGET=[target temp]  GAMMA= [desired asymmetry value]  WRITE_FILE=[1 for a txt of temp values]
 
 
   The new gamma input should be an integer greater than 1 that defines the asymmetry of the experiment. Default values of 6 to 10 are recommended. NOTE: the larger your gamma, the greater the target temperatures will be during testing.  A gamma value MUST be provided.
@@ -35,9 +35,9 @@ Phase 4: The system shuts heating off and notifies klipper that it should end th
 
 
 
-If you are interested in being a test subject for KAPA, download the file in the "new-klipper-files" folder called pid_calibrate.py. DO NOT RENAME IT. The file must have this name. Next, use your SSH or SCP program of choice (I use winSCP) to navigate on your pi hosting klipper to:  /home/pi/klipper/klippy/extras    Next, identify and delete the two files named pid_calibrate in this folder. (One will have the .py extension, the other is a .pyc file that is auto generated on reboot). Finally, move the newly modified file you downloaded from me into the folder. 
+If you are interested in being a test subject for KAPA, download the file in the "new-klipper-files" folder called KAPA.py. DO NOT RENAME IT. The file must have this name. Next, use your SSH or SCP program of choice (I use winSCP) to navigate on your pi hosting klipper to:  /home/pi/klipper/klippy/extras.  Upload the KAPA.py file to this directory.  Finally, add [KAPA] to your printer's config file. 
 
-Alternatively, you can copy/paste replace the contents of the new pid_calibrate.py file here into the file located on your pi. However, you still MUST delete the pid_calibrate.pyc file. Otherwise klipper wont "see" the new changes.
+Note: Since this is a new module, you can still call and use the default PID tuner using the PID_CALIBRATE command
 
 
 please email me with any and all findings/issues at: pseudonymous.cypher@gmail.com
