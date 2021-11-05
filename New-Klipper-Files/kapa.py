@@ -107,8 +107,7 @@ class ControlAutoTune:
     def temperature_update(self, read_time, temp, target_temp):
         self.temp_samples.append((read_time, temp))
         logging.info("phase: %f", self.phase)
-        logging.info("max temp %f ", self.heater_max_temp)
-        logging.info("max thresh %f ", self.max_threshold)
+
 
 
 
