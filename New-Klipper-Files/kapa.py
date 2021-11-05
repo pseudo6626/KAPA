@@ -90,6 +90,7 @@ class ControlAutoTune:
         self.threshold=0.000625   #the variance threshold for 5 seconds of temperatures to qualify steadstate pwm 
         self.max_threshold = pref[1][1]
         self.conv_limit= pref[2][1]
+        self.conv_thresh=0.01
         self.phase_call=0
         self.tau=-1
         self.rho=-1
@@ -235,10 +236,12 @@ class ControlAutoTune:
                 if len(self.halfcycles[0]) >= 2 and len(self.halfcycles[1]) >= 2:
                     self.gcode.respond_info("cycle dev: %f" % (abs((self.halfcycles[0][-1][0]+self.halfcycles[1][-1][0]) - (self.halfcycles[0][-2][0]+self.halfcycles[1][-2][0]))/(self.halfcycles[0][-2][0]+self.halfcycles[1][-2][0])))
                     self.gcode.respond_info("up diff: %f down diff: %f" % (abs(self.halfcycles[0][-1][0]-self.halfcycles[0][-2][0])/self.halfcycles[0][-2][0],abs(self.halfcycles[1][-1][0]-self.halfcycles[1][-2][0])/self.halfcycles[1][-2][0]))
-                    #if abs((self.halfcycles[0][-1][0]+self.halfcycles[1][-1][0]) - (self.halfcycles[0][-2][0]+self.halfcycles[1][-2][0]))/(self.halfcycles[0][-2][0]+self.halfcycles[1][-2][0]) <=self.conv_limit:
-                    if abs(self.halfcycles[0][-1][0]-self.halfcycles[0][-2][0])/self.halfcycles[0][-2][0] <=self.conv_limit and abs(self.halfcycles[1][-1][0]-self.halfcycles[1][-2][0])/self.halfcycles[1][-2][0] <=self.conv_limit:
+                    #if abs((self.halfcycles[0][-1][0]+self.halfcycles[1][-1][0]) - (self.halfcycles[0][-2][0]+self.halfcycles[1][-2][0]))/(self.halfcycles[0][-2][0]+self.halfcycles[1][-2][0]) <=self.conv_thresh:
+                    if abs(self.halfcycles[0][-1][0]-self.halfcycles[0][-2][0])/self.halfcycles[0][-2][0] <self.conv_thresh and abs(self.halfcycles[1][-1][0]-self.halfcycles[1][-2][0])/self.halfcycles[1][-2][0] <=self.conv_thresh:
                         self.phase = 4
                         self.phase_call=0
+                    else:
+                        self.conv_thresh=min(0.01+0.005*math.floor((len(self.halfcycles[1])-2)/2),self.conv_limit)
                 
             elif self.heating and temp >= self.bands[0][1]: #if heating and in upper band
                 self.phase_temps.append([read_time, temp])
@@ -260,10 +263,12 @@ class ControlAutoTune:
                 if len(self.halfcycles[0]) >= 2 and len(self.halfcycles[1]) >= 2:
                     #self.gcode.respond_info("cycle dev: %f" % (abs((self.halfcycles[0][-1][0]+self.halfcycles[1][-1][0]) - (self.halfcycles[0][-2][0]+self.halfcycles[1][-2][0]))/(self.halfcycles[0][-2][0]+self.halfcycles[1][-2][0])))
                     #self.gcode.respond_info("up diff: %f down diff: %f" % (abs(self.halfcycles[0][-1][0]-self.halfcycles[0][-2][0])/self.halfcycles[0][-2][0],abs(self.halfcycles[1][-1][0]-self.halfcycles[1][-2][0])/self.halfcycles[1][-2][0]))
-                    #if abs((self.halfcycles[0][-1][0]+self.halfcycles[1][-1][0]) - (self.halfcycles[0][-2][0]+self.halfcycles[1][-2][0]))/(self.halfcycles[0][-2][0]+self.halfcycles[1][-2][0]) <=self.conv_limit:
-                    if abs(self.halfcycles[0][-1][0]-self.halfcycles[0][-2][0])/self.halfcycles[0][-2][0] <self.conv_limit and abs(self.halfcycles[1][-1][0]-self.halfcycles[1][-2][0])/self.halfcycles[1][-2][0] <=self.conv_limit:
+                    #if abs((self.halfcycles[0][-1][0]+self.halfcycles[1][-1][0]) - (self.halfcycles[0][-2][0]+self.halfcycles[1][-2][0]))/(self.halfcycles[0][-2][0]+self.halfcycles[1][-2][0]) <=self.conv_thresh:
+                    if abs(self.halfcycles[0][-1][0]-self.halfcycles[0][-2][0])/self.halfcycles[0][-2][0] <self.conv_thresh and abs(self.halfcycles[1][-1][0]-self.halfcycles[1][-2][0])/self.halfcycles[1][-2][0] <=self.conv_thresh:
                         self.phase = 4
                         self.phase_call=0
+                    else:
+                        self.conv_thresh=min(0.01+0.005*math.floor((len(self.halfcycles[0])-2)/2),self.conv_limit)
                         
             else: #if not at a switching point
                 self.phase_temps.append([read_time, temp])
