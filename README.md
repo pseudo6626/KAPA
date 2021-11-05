@@ -35,7 +35,7 @@ Phase 4: The system shuts heating off and notifies klipper that it should end th
 
 
 
-If you are interested in being a test subject for KAPA, download the file in the "new-klipper-files" folder called KAPA.py. DO NOT RENAME IT. The file must have this name. Next, use your SSH or SCP program of choice (I use winSCP) to navigate on your pi hosting klipper to:  /home/pi/klipper/klippy/extras.  Upload the KAPA.py file to this directory.  Finally, add [kapa] to your printer's config file. 
+If you are interested in being a test subject for KAPA, download the file in the "new-klipper-files" folder called KAPA.py. DO NOT RENAME IT. The file must have this name. Next, use your SSH or SCP program of choice (I use winSCP) to navigate on your pi hosting klipper to:  /home/pi/klipper/klippy/extras.  Upload the KAPA.py file to this directory.  Finally, add [kapa] to your printer's config file. This config section supports two parameters that are completely optional. The first is "max_testing_temp:" which sets a maximum testing temp for kapa, and "max_threshold:" which allows the user to set the maximum variation threshold for phase 1.
 
 Note: Since this is a new module, you can still call and use the default PID tuner using the PID_CALIBRATE command
 
