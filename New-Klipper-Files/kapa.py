@@ -242,6 +242,7 @@ class ControlAutoTune:
                         self.phase_call=0
                     else:
                         self.conv_thresh=min(0.01+0.005*math.floor((len(self.halfcycles[1])-2)/2),self.conv_limit)
+                        self.gcode.respond_info("current limit: %f" % (self.conv_thresh))
                 
             elif self.heating and temp >= self.bands[0][1]: #if heating and in upper band
                 self.phase_temps.append([read_time, temp])
@@ -269,6 +270,7 @@ class ControlAutoTune:
                         self.phase_call=0
                     else:
                         self.conv_thresh=min(0.01+0.005*math.floor((len(self.halfcycles[0])-2)/2),self.conv_limit)
+                        self.gcode.respond_info("current limit: %f" % (self.conv_thresh))
                         
             else: #if not at a switching point
                 self.phase_temps.append([read_time, temp])
