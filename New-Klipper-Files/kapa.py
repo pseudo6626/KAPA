@@ -9,7 +9,7 @@ from . import heaters
 class KAPAPIDCalibrate:
     def __init__(self, config):
         self.printer = config.get_printer()
-        self.preferences=[["max_testing_temp",-1],["max_threshold",0.0025]]
+        self.preferences=[["max_testing_temp",-1],["max_threshold",0.0025],["cycle_convergence_limit",0.01]]
         for i in self.preferences:
              if config.get(i[0],None) != None:
                 i[1]=config.getfloat(i[0])
@@ -89,6 +89,7 @@ class ControlAutoTune:
         self.driver=0       #an estimation of the enviromental driving force cooling the heater
         self.threshold=0.000625   #the variance threshold for 5 seconds of temperatures to qualify steadstate pwm 
         self.max_threshold = pref[1][1]
+        self.conv_limit= pref[2][1]
         self.phase_call=0
         self.tau=-1
         self.rho=-1
@@ -234,8 +235,8 @@ class ControlAutoTune:
                 if len(self.halfcycles[0]) >= 2 and len(self.halfcycles[1]) >= 2:
                     self.gcode.respond_info("cycle dev: %f" % (abs((self.halfcycles[0][-1][0]+self.halfcycles[1][-1][0]) - (self.halfcycles[0][-2][0]+self.halfcycles[1][-2][0]))/(self.halfcycles[0][-2][0]+self.halfcycles[1][-2][0])))
                     self.gcode.respond_info("up diff: %f down diff: %f" % (abs(self.halfcycles[0][-1][0]-self.halfcycles[0][-2][0])/self.halfcycles[0][-2][0],abs(self.halfcycles[1][-1][0]-self.halfcycles[1][-2][0])/self.halfcycles[1][-2][0]))
-                    #if abs((self.halfcycles[0][-1][0]+self.halfcycles[1][-1][0]) - (self.halfcycles[0][-2][0]+self.halfcycles[1][-2][0]))/(self.halfcycles[0][-2][0]+self.halfcycles[1][-2][0]) <=0.01:
-                    if abs(self.halfcycles[0][-1][0]-self.halfcycles[0][-2][0])/self.halfcycles[0][-2][0] <=0.01 and abs(self.halfcycles[1][-1][0]-self.halfcycles[1][-2][0])/self.halfcycles[1][-2][0] <=0.01:
+                    #if abs((self.halfcycles[0][-1][0]+self.halfcycles[1][-1][0]) - (self.halfcycles[0][-2][0]+self.halfcycles[1][-2][0]))/(self.halfcycles[0][-2][0]+self.halfcycles[1][-2][0]) <=self.conv_limit:
+                    if abs(self.halfcycles[0][-1][0]-self.halfcycles[0][-2][0])/self.halfcycles[0][-2][0] <=self.conv_limit and abs(self.halfcycles[1][-1][0]-self.halfcycles[1][-2][0])/self.halfcycles[1][-2][0] <=self.conv_limit:
                         self.phase = 4
                         self.phase_call=0
                 
@@ -259,8 +260,8 @@ class ControlAutoTune:
                 if len(self.halfcycles[0]) >= 2 and len(self.halfcycles[1]) >= 2:
                     #self.gcode.respond_info("cycle dev: %f" % (abs((self.halfcycles[0][-1][0]+self.halfcycles[1][-1][0]) - (self.halfcycles[0][-2][0]+self.halfcycles[1][-2][0]))/(self.halfcycles[0][-2][0]+self.halfcycles[1][-2][0])))
                     #self.gcode.respond_info("up diff: %f down diff: %f" % (abs(self.halfcycles[0][-1][0]-self.halfcycles[0][-2][0])/self.halfcycles[0][-2][0],abs(self.halfcycles[1][-1][0]-self.halfcycles[1][-2][0])/self.halfcycles[1][-2][0]))
-                    #if abs((self.halfcycles[0][-1][0]+self.halfcycles[1][-1][0]) - (self.halfcycles[0][-2][0]+self.halfcycles[1][-2][0]))/(self.halfcycles[0][-2][0]+self.halfcycles[1][-2][0]) <=0.01:
-                    if abs(self.halfcycles[0][-1][0]-self.halfcycles[0][-2][0])/self.halfcycles[0][-2][0] <=0.01 and abs(self.halfcycles[1][-1][0]-self.halfcycles[1][-2][0])/self.halfcycles[1][-2][0] <=0.01:
+                    #if abs((self.halfcycles[0][-1][0]+self.halfcycles[1][-1][0]) - (self.halfcycles[0][-2][0]+self.halfcycles[1][-2][0]))/(self.halfcycles[0][-2][0]+self.halfcycles[1][-2][0]) <=self.conv_limit:
+                    if abs(self.halfcycles[0][-1][0]-self.halfcycles[0][-2][0])/self.halfcycles[0][-2][0] <self.conv_limit and abs(self.halfcycles[1][-1][0]-self.halfcycles[1][-2][0])/self.halfcycles[1][-2][0] <=self.conv_limit:
                         self.phase = 4
                         self.phase_call=0
                         
