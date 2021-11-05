@@ -13,7 +13,7 @@ First, calling the command is very simmilar to the stock command, but with one a
 KAPA HEATER=[desired heater]  TARGET=[target temp]  GAMMA= [desired asymmetry value]  WRITE_FILE=[1 for a txt of temp values]
 
 
-  The new gamma input should be an integer greater than 1 that defines the asymmetry of the experiment. Default values of 6 to 10 are recommended. NOTE: the larger your gamma, the greater the target temperatures will be during testing.  A gamma value MUST be provided.
+  The new gamma input should be an integer greater than 1 that defines the asymmetry of the experiment. Default values of 6 to 10 are recommended. NOTE: the larger your gamma, the greater the target temperatures will be during testing. One way to understand gamma is that it needs to be at least as large as the ratio between the time it takes your heater to reach the max and min target temps.(example, if it takes 30 seconds to heat to the upper target, and 2 minuites to cool to the lower, your gamma would need to be at least 4 for the process to provide good results).  A gamma value MUST be provided.
   
   
   
