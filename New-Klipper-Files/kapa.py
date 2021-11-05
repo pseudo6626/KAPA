@@ -230,7 +230,7 @@ class ControlAutoTune:
                 self.heater.alter_target(self.bands[0][1])
                 self.phase_pwms.append((read_time,self.pwm_amps[0]))
                 self.halfcycles[1].append([self.phase_pwms[-1][0]-self.phase_pwms[-2][0],self.phase_pwms[-2][1]])
-                self.gcode.respond_info("up time: %f" % (self.halfcycles[0][-1][0]))
+                self.gcode.respond_info("down time: %f" % (self.halfcycles[1][-1][0]))
                 if len(self.halfcycles[0]) >= 2 and len(self.halfcycles[1]) >= 2:
                     self.gcode.respond_info("cycle dev: %f" % (abs((self.halfcycles[0][-1][0]+self.halfcycles[1][-1][0]) - (self.halfcycles[0][-2][0]+self.halfcycles[1][-2][0]))/(self.halfcycles[0][-2][0]+self.halfcycles[1][-2][0])))
                     self.gcode.respond_info("up diff: %f down diff: %f" % (abs(self.halfcycles[0][-1][0]-self.halfcycles[0][-2][0])/self.halfcycles[0][-2][0],abs(self.halfcycles[1][-1][0]-self.halfcycles[1][-2][0])/self.halfcycles[1][-2][0]))
@@ -255,7 +255,7 @@ class ControlAutoTune:
                 self.heater.alter_target(self.bands[1][0])
                 self.phase_pwms.append((read_time,self.pwm_amps[1]))
                 self.halfcycles[0].append([self.phase_pwms[-1][0]-self.phase_pwms[-2][0],self.phase_pwms[-2][1]])
-                self.gcode.respond_info("down time: %f" % (self.halfcycles[1][-1][0]))
+                self.gcode.respond_info("up time: %f" % (self.halfcycles[0][-1][0]))
                 if len(self.halfcycles[0]) >= 2 and len(self.halfcycles[1]) >= 2:
                     self.gcode.respond_info("cycle dev: %f" % (abs((self.halfcycles[0][-1][0]+self.halfcycles[1][-1][0]) - (self.halfcycles[0][-2][0]+self.halfcycles[1][-2][0]))/(self.halfcycles[0][-2][0]+self.halfcycles[1][-2][0])))
                     self.gcode.respond_info("up diff: %f down diff: %f" % (abs(self.halfcycles[0][-1][0]-self.halfcycles[0][-2][0])/self.halfcycles[0][-2][0],abs(self.halfcycles[1][-1][0]-self.halfcycles[1][-2][0])/self.halfcycles[1][-2][0]))
@@ -336,7 +336,13 @@ class ControlAutoTune:
         
     # Offline analysis helper
     def write_file(self, filename):
-        stats = ["h: %f" % (self.h),"variance: %f" % (self.vary),"threshold: %f" % (self.threshold),"mu: %f" % (self.mu),"steadystate pwm: %f" % (self.target_PWM),"max target temp: %f min target temp: %f" % (self.bands[2][0],self.bands[2][1]),"rho: %f" % (self.rho),"tau: %f" % (self.tau)]
+        stats = ["h: %f" % (self.h),"variance: %f" % (self.vary),"threshold: %f" % (self.threshold),"mu: %f" % (self.mu),"steadystate pwm: %f" % (self.target_PWM),"rho: %f" % (self.rho),"tau: %f" % (self.tau)]
+        try:
+               stats2=["max target temp: %f min target temp: %f" % (self.bands[2][0],self.bands[2][1])]
+               stats3=["Half Cycles",self.halfcycles[0],self.halfcycles[1]]
+        except:
+               stats2=[""]
+               stats3=[""]
         pwm = ["pwm: %.3f %.3f" % (time, value)
                for time, value in self.pwm_samples]
         out = ["%.3f %.3f" % (time, temp) for time, temp in self.temp_samples]
