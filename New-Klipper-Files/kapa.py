@@ -309,7 +309,7 @@ class ControlAutoTune:
         mindown=min(downtimes)
 	maxdown=max(downtimes)
         rho = max(self.halfcycles[0][-1][0],self.halfcycles[1][-1][0])/ min(self.halfcycles[0][-1][0],self.halfcycles[1][-1][0])
-        tau= 1-(self.gamma - rho)/((self.gamma-1)*(0.35*rho+0.65))
+        tau= min(1-(self.gamma - rho)/((self.gamma-1)*(0.35*rho+0.65)),1)
         self.tau=tau
         self.rho=rho
         pwmInt=self.halfcycles[0][-1][0]*(self.halfcycles[0][-1][1]-self.target_PWM)*255 + self.halfcycles[1][-1][0]*(self.halfcycles[1][-1][1]-self.target_PWM)*255
@@ -323,7 +323,6 @@ class ControlAutoTune:
                 tempInt += (cycleTemps[cycleTemps.index(pairs)+1][0] - pairs[0])*(((cycleTemps[cycleTemps.index(pairs)+1][1] + pairs[1])/2)-self.calibrate_temp)
         Kp=abs(tempInt/pwmInt)
         self.gcode.respond_info("rho: %f tau: %f pwmInt: %f tempInt: %f Kp: %f" %(rho,tau,pwmInt,tempInt,Kp))
-        self.gcode.respond_info("cycle temps: %a" % (cycleTemps))
         T=self.halfcycles[0][-1][0]/math.log(((self.h/Kp) - self.target_PWM + math.exp(tau/(1-tau))*(self.target_PWM+self.halfcycles[0][-1][1]))/(self.halfcycles[0][-1][1]-(self.h/Kp)))
         L=T*(tau/(1-tau))
         K=(0.2*L+0.45*T)/(Kp*L)
@@ -348,7 +347,7 @@ class ControlAutoTune:
                for time, value in self.pwm_samples]
         out = ["%.3f %.3f" % (time, temp) for time, temp in self.temp_samples]
         f = open(filename, "wb")
-        f.write('\n'.join(stats + pwm + out))
+        f.write('\n'.join(stats + stats2 + stats3 + pwm + out))
         f.close()
         
         
