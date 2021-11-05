@@ -346,8 +346,8 @@ class ControlAutoTune:
                stats2=["max target temp: %f min target temp: %f" % (self.bands[2][0],self.bands[2][1])]
                stats3=["Half Cycles",self.halfcycles[0],self.halfcycles[1]]
         except:
-               stats2=[""]
-               stats3=[""]
+               stats2=[" "]
+               stats3=[" "]
         pwm = ["pwm: %.3f %.3f" % (time, value)
                for time, value in self.pwm_samples]
         out = ["%.3f %.3f" % (time, temp) for time, temp in self.temp_samples]
