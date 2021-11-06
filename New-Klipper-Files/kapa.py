@@ -36,13 +36,13 @@ class KAPAPIDCalibrate:
             heater.set_control(old_control)
             raise
         heater.set_control(old_control)
-        if write_file:
-            calibrate.write_file('/tmp/heattest.txt')
         if calibrate.check_busy(0., 0., 0.):
             raise gcmd.error("pid_calibrate interrupted")
         # Log and report results
         Kp, Ki, Kd = calibrate.calc_final_pid()
         logging.info("Autotune: final: Kp=%f Ki=%f Kd=%f", Kp, Ki, Kd)
+        if write_file:
+            calibrate.write_file('/tmp/heattest.txt')
         gcmd.respond_info(
             "PID parameters: pid_Kp=%.3f pid_Ki=%.3f pid_Kd=%.3f\n"
             "The SAVE_CONFIG command will update the printer config file\n"
@@ -315,7 +315,7 @@ class ControlAutoTune:
         mindown=min(downtimes)
 	maxdown=max(downtimes)
         rho = max(self.halfcycles[0][-1][0],self.halfcycles[1][-1][0])/ min(self.halfcycles[0][-1][0],self.halfcycles[1][-1][0])
-        tau= min(1-(self.gamma - rho)/((self.gamma-1)*(0.35*rho+0.65)),1)
+        tau= min(1-(self.gamma - rho)/((self.gamma-1)*(0.35*rho+0.65)),0.9)
         self.tau=tau
         self.rho=rho
         pwmInt=self.halfcycles[0][-1][0]*(self.halfcycles[0][-1][1]-self.target_PWM)*255 + self.halfcycles[1][-1][0]*(self.halfcycles[1][-1][1]-self.target_PWM)*255
@@ -345,18 +345,19 @@ class ControlAutoTune:
         stats = ["h: %f" % (self.h),"variance: %f" % (self.vary),"threshold: %f" % (self.threshold),"mu: %f" % (self.mu),"steadystate pwm: %f" % (self.target_PWM),"rho: %f" % (self.rho),"tau: %f" % (self.tau)]
         try:
                stats2=["max target temp: %f min target temp: %f" % (self.bands[2][0],self.bands[2][1])]
-               stats3=["Half Cycles",self.halfcycles[0],self.halfcycles[1]]
+               stats3=["Half Cycles Up %.3f %.3f" % (time, temp) for time, temp in self.halfcycles[0]]
+               stats4=["Half Cycles Down %.3f %.3f" % (time, temp) for time, temp in self.halfcycles[1]]
         except:
                stats2=[" "]
                stats3=[" "]
+               stats4=[" "]
         pwm = ["pwm: %.3f %.3f" % (time, value)
                for time, value in self.pwm_samples]
         out = ["%.3f %.3f" % (time, temp) for time, temp in self.temp_samples]
         f = open(filename, "wb")
-        f.write('\n'.join(stats + stats2 + stats3 + pwm + out))
+        f.write('\n'.join(stats + stats2 + stats3 + stats4 + pwm + out))
         f.close()
         
         
 def load_config(config):
     return KAPAPIDCalibrate(config)
-
