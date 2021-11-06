@@ -216,7 +216,6 @@ class ControlAutoTune:
                 self.phase_call=1
             if not self.heating and temp <= self.bands[1][0]: #if not heating and in lower band
                 self.phase_temps.append([read_time, temp])
-                logging.info(self.phase_temps)
                 for samples in self.phase_temps:
                     if samples[0] >= self.phase_pwms[-1][0] and samples[0] <= read_time:
                         self.sampling.append(samples[1])
@@ -229,7 +228,7 @@ class ControlAutoTune:
                 self.heating= True
                 self.set_pwm(read_time,self.pwm_amps[0])
                 self.heater.alter_target(self.bands[0][1])
-                self.phase_pwms.append((read_time,self.pwm_amps[0]))
+                self.phase_pwms.append([read_time,self.pwm_amps[0]])
                 self.halfcycles[1].append([self.phase_pwms[-1][0]-self.phase_pwms[-2][0],self.phase_pwms[-2][1]])
                 self.gcode.respond_info("down time: %f" % (self.halfcycles[1][-1][0]))
                 if len(self.halfcycles[0]) >= 2 and len(self.halfcycles[1]) >= 2:
@@ -257,7 +256,7 @@ class ControlAutoTune:
                 self.heating= False
                 self.set_pwm(read_time,self.pwm_amps[1])
                 self.heater.alter_target(self.bands[1][0])
-                self.phase_pwms.append((read_time,self.pwm_amps[1]))
+                self.phase_pwms.append([read_time,self.pwm_amps[1]])
                 self.halfcycles[0].append([self.phase_pwms[-1][0]-self.phase_pwms[-2][0],self.phase_pwms[-2][1]])
                 self.gcode.respond_info("up time: %f" % (self.halfcycles[0][-1][0]))
                 if len(self.halfcycles[0]) >= 2 and len(self.halfcycles[1]) >= 2:
